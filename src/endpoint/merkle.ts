@@ -345,6 +345,19 @@ class MerkleTransport implements Transport<BaseEndpointTypes> {
     }
 
     const accounts = accountData[0]
+
+    if (Object.keys(newTreeData).length != accounts.length) {
+      return {
+        statusCode: 500,
+        errorMessage: 'Invalid merkle tree',
+        timestamps: {
+          providerDataRequestedUnixMs,
+          providerDataReceivedUnixMs: Date.now(),
+          providerIndicatedTimeUnixMs: undefined,
+        },
+      }
+    }
+
     for (let i = 0; i < accounts.length; i++) {
       let account = accounts[i]
       let amount = BigInt(newTreeData[account].amount)

@@ -1,14 +1,14 @@
 {
-  "name": "staking-queue-ea",
+  "name": "priority-pool-ea",
   "version": "1.0.0",
-  "description": "Chainlink external adapter for staking queue",
+  "description": "Chainlink external adapter for priority pool",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],
   "repository": {
-    "url": "https://github.com/stakedotlink/staking-queue-ea",
+    "url": "https://github.com/stakedotlink/priority-pool-ea",
     "type": "git"
   },
   "license": "MIT",

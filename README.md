@@ -1,1 +1,1 @@
-# staking-queue-ea
+# priority-pool-ea

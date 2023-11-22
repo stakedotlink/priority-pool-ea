@@ -125,10 +125,9 @@ export function mockIpfsResponse(
   newTreeData,
   newIpfsCID
 ): nock.Scope {
-  return nock('http://127.0.0.1:5000', { encodedQueryParams: true })
+  return nock('http://127.0.0.1:5000/pinata')
     .persist()
-    .post('/api/v0/cat')
-    .query({ arg: existingIpfsCID })
+    .get(`/ipfs/${existingIpfsCID}`)
     .reply(200, JSON.stringify(calculateIPFSData(existingTreeData)), [
       'Access-Control-Allow-Headers',
       'X-Stream-Output, X-Chunked-Output, X-Content-Length',
@@ -151,11 +150,12 @@ export function mockIpfsResponse(
       'Transfer-Encoding',
       'chunked',
     ])
-    .post('/api/v0/add', (body: string) => {
+    .post('/pinning/pinJSONToIPFS', (body) => {
       const newIpfsData = calculateIPFSData(newTreeData)
-      const data = JSON.parse(body.split('\r\n')[3])
+      const data = JSON.parse(body.pinataContent)
       const accounts = Object.keys(data.data)
 
+      if (body.pinataOptions.cidVersion != 0) return false
       if (data.merkleRoot != newIpfsData.merkleRoot) return false
       if (Object.keys(newIpfsData.data).length != accounts.length) return false
 
@@ -166,13 +166,13 @@ export function mockIpfsResponse(
 
       return true
     })
-    .query({ pin: 'true', 'cid-version': '0', hash: 'sha2-256' })
     .reply(
       200,
       {
-        Name: newIpfsCID,
-        Hash: newIpfsCID,
-        Size: '1000',
+        IpfsHash: newIpfsCID,
+        PinSize: 54,
+        Timestamp: '2023-11-21T18:52:21.672Z',
+        isDuplicate: true,
       },
       [
         'Access-Control-Allow-Headers',
@@ -200,34 +200,30 @@ export function mockIpfsResponse(
 }
 
 export function mockIpfsErrorResponse(ipfsCID): nock.Scope {
-  return nock('http://127.0.0.1:5000', { encodedQueryParams: true })
-    .persist()
-    .post('/api/v0/cat')
-    .query({ arg: ipfsCID })
-    .reply(
-      500,
-      {
-        Message: 'IPFS request error',
-        Code: 0,
-        Type: 'error',
-      },
-      [
-        'Access-Control-Allow-Headers',
-        'X-Stream-Output, X-Chunked-Output, X-Content-Length',
-        'Access-Control-Expose-Headers',
-        'X-Stream-Output, X-Chunked-Output, X-Content-Length',
-        'Content-Type',
-        'application/json',
-        'Server',
-        'go-ipfs/0.9.1',
-        'Trailer',
-        'X-Stream-Error',
-        'Vary',
-        'Origin',
-        'Date',
-        'Tue, 14 Sep 2021 10:41:02 GMT',
-        'Transfer-Encoding',
-        'chunked',
-      ]
-    )
+  return nock('http://127.0.0.1:5000/gateway').persist().get(`/ipfs/${ipfsCID}`).reply(
+    500,
+    {
+      Message: 'IPFS request error',
+      Code: 0,
+      Type: 'error',
+    },
+    [
+      'Access-Control-Allow-Headers',
+      'X-Stream-Output, X-Chunked-Output, X-Content-Length',
+      'Access-Control-Expose-Headers',
+      'X-Stream-Output, X-Chunked-Output, X-Content-Length',
+      'Content-Type',
+      'application/json',
+      'Server',
+      'go-ipfs/0.9.1',
+      'Trailer',
+      'X-Stream-Error',
+      'Vary',
+      'Origin',
+      'Date',
+      'Tue, 14 Sep 2021 10:41:02 GMT',
+      'Transfer-Encoding',
+      'chunked',
+    ]
+  )
 }

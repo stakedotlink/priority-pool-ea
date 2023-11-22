@@ -17,14 +17,18 @@ describe('merkle endpoint', () => {
   const RPC_URL = 'http://127.0.0.1:8545'
   const CHAIN_ID = '1'
   const QUEUE_CONTRACT_ADDRESS = '0x12363078a932ca28d8ed58532caee579b473edc5'
-  const IPFS_URL = 'http://127.0.0.1:5000/api/v0'
+  const PINATA_API_URL = 'http://127.0.0.1:5000/pinata'
+  const PINATA_GATEWAY_URL = 'http://127.0.0.1:5000/pinata'
+  const PINATA_JWT = 'test'
 
   beforeAll(async () => {
     oldEnv = JSON.parse(JSON.stringify(process.env))
     process.env['RPC_URL'] = RPC_URL
     process.env['CHAIN_ID'] = CHAIN_ID
     process.env['PRIORITY_POOL_CONTRACT_ADDRESS'] = QUEUE_CONTRACT_ADDRESS
-    process.env['IPFS_URL'] = IPFS_URL
+    process.env['PINATA_API_URL'] = PINATA_API_URL
+    process.env['PINATA_GATEWAY_URL'] = PINATA_GATEWAY_URL
+    process.env['PINATA_JWT'] = PINATA_JWT
 
     const mockDate = new Date('2022-05-10T16:09:27.193Z')
     spy = jest.spyOn(Date, 'now').mockReturnValue(mockDate.getTime())

@@ -16,8 +16,18 @@ export const config = new AdapterConfig({
     type: 'string',
     required: true,
   },
-  IPFS_URL: {
-    description: 'RPC URL for IPFS',
+  PINATA_API_URL: {
+    description: 'API URL for Pinata',
+    type: 'string',
+    required: true,
+  },
+  PINATA_JWT: {
+    description: 'JWT for Pinata API',
+    type: 'string',
+    required: true,
+  },
+  PINATA_GATEWAY_URL: {
+    description: 'Gateway URL for Pinata',
     type: 'string',
     required: true,
   },

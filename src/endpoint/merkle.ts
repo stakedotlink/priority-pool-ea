@@ -266,12 +266,9 @@ class MerkleTransport implements Transport<BaseEndpointTypes> {
 
     if (ipfsHash != ethers.zeroPadBytes('0x', 32)) {
       let res: any = await this.requester.request(ipfsHash, {
-        method: 'post',
-        baseURL: settings.IPFS_URL,
-        url: '/cat',
-        params: {
-          arg: base58.encode(Buffer.from('1220' + ipfsHash.slice(2), 'hex')),
-        },
+        method: 'get',
+        baseURL: settings.PINATA_GATEWAY_URL,
+        url: `/ipfs/${base58.encode(Buffer.from('1220' + ipfsHash.slice(2), 'hex'))}`,
       })
       const { data } = res.response
       if (data.merkleRoot != merkleRoot) {
@@ -380,24 +377,24 @@ class MerkleTransport implements Transport<BaseEndpointTypes> {
     const res: any = await this.requester.request(newMerkleRoot, {
       method: 'post',
       headers: {
-        'Content-Type': 'multipart/form-data',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + settings.PINATA_JWT,
       },
-      baseURL: settings.IPFS_URL,
-      url: '/add',
-      params: {
-        pin: true,
-        'cid-version': 0,
-        hash: 'sha2-256',
-      },
+      baseURL: settings.PINATA_API_URL,
+      url: '/pinning/pinJSONToIPFS',
       data: {
-        data: JSON.stringify({
+        pinataOptions: {
+          cidVersion: 0,
+        },
+        pinataContent: JSON.stringify({
           merkleRoot: newMerkleRoot,
           data: newTreeData,
         }),
       },
     })
 
-    const newIpfsCID = res.response.data.Hash
+    const newIpfsCID = res.response.data.IpfsHash
     const newIpfsHash = '0x' + Buffer.from(base58.decode(newIpfsCID)).toString('hex').slice(4)
 
     const result = {

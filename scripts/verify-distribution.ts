@@ -7,12 +7,15 @@ import { PriorityPoolABI } from '../src/config/PriorityPoolABI'
 import { DistributionOracleABI } from '../src/config/DistributionOracleABI'
 
 /*
- * This script will calculate priority pool distribution data for any past distribution
+ * This script will calculate priority pool distribution data for any past distribution and verify it
+ * against the distribution data stored in the PriorityPool and on IPFS
  *
- * Before running, set the following:
+ * Before running, set the following env vars:
  * RPC_URL: ETH Mainnet RPC URL
- * BLOCK_NUMBER: block number of a previous distribution
  * IPFS_GATEWAY_URL: URL for IPFS Gateway (optional)
+ *
+ * And pass the following args:
+ * blockNumber: block number of a previous distribution
  */
 
 const CHAIN_ID = 1
@@ -198,10 +201,12 @@ export function getNewTreeData(
 
 async function main() {
   const rpcUrl = process.env.RPC_URL
-  const distributionBlockNumber: any = process.env.BLOCK_NUMBER
+  const distributionBlockNumber: number = Number(process.argv[2] || 0)
 
-  if (rpcUrl == undefined) throw Error('Must set RPC_URL')
-  if (distributionBlockNumber == undefined) throw Error('Must set BLOCK_NUMBER')
+  if (rpcUrl == undefined) throw Error('env RPC_URL is required')
+  if (distributionBlockNumber == 0) throw Error('arg `blockNumber` is required')
+
+  console.log('Starting verification...\n')
 
   const provider = new ethers.JsonRpcProvider(rpcUrl, CHAIN_ID, {
     batchMaxSize: 1,
@@ -217,6 +222,13 @@ async function main() {
     provider
   )
 
+  const events: any = await priorityPool.queryFilter(
+    priorityPool.filters.UpdateDistribution,
+    distributionBlockNumber,
+    distributionBlockNumber
+  )
+  if (events.length != 1) throw Error('Invalid block number: no distribution found')
+
   const blockNumber = (
     await distributionOracle.updateStatus({
       blockTag: distributionBlockNumber - 1,
@@ -226,12 +238,8 @@ async function main() {
   const [toDistribute, sharesToDistribute] = (
     await priorityPool.getDepositsSinceLastUpdate({ blockTag: blockNumber })
   ).map((v: any) => BigInt(v))
-  if (toDistribute < BigInt(1e18)) {
-    throw Error('Nothing to distribute')
-  }
 
   const ipfsHash = await priorityPool.ipfsHash({ blockTag: blockNumber })
-  const merkleRoot = await priorityPool.merkleRoot({ blockTag: blockNumber })
   const accountData = await priorityPool.getAccountData({ blockTag: blockNumber })
 
   let treeData: any = {}
@@ -242,11 +250,7 @@ async function main() {
       baseURL: IPFS_GATEWAY_URL,
       url: `/${base58.encode(Buffer.from('1220' + ipfsHash.slice(2), 'hex'))}`,
     })
-    const data = JSON.parse(res.data)
-    if (data.merkleRoot != merkleRoot) {
-      throw Error('Merkle roots do not match')
-    }
-    treeData = data.data
+    treeData = JSON.parse(res.data).data
   }
 
   const { qTokenBalances, reSDLBalances, reSDLTotal, nonSDLAccounts } = getAccountBalances(
@@ -271,10 +275,6 @@ async function main() {
   const totalAmountDistributed =
     primaryDistributionData.distributed + secondaryDistributionData.distributed
 
-  if (totalAmountDistributed > toDistribute) {
-    throw Error('Distributed more than possible')
-  }
-
   const actualSharesToDistribute = (sharesToDistribute * totalAmountDistributed) / toDistribute
   const { newTreeData, newMerkleRoot, totalSharesDistributed } = getNewTreeData(
     treeData,
@@ -285,29 +285,8 @@ async function main() {
     actualSharesToDistribute
   )
 
-  if (totalSharesDistributed > actualSharesToDistribute) {
-    throw Error('Distributed more shares than possible')
-  }
-
-  const accounts = accountData[0]
-
-  if (Object.keys(newTreeData).length != accounts.length) {
-    throw Error('Invalid merkle tree')
-  }
-
-  for (let i = 0; i < accounts.length; i++) {
-    let account = accounts[i]
-    let amount = BigInt(newTreeData[account].amount)
-    let queuedBalance = BigInt(accountData[2][i])
-    let oldAmount = BigInt(treeData[account]?.amount || 0)
-
-    if (amount > queuedBalance || amount < oldAmount) {
-      throw Error('Invalid merkle tree')
-    }
-  }
-
   const result = {
-    blockNumber: blockNumber.toString(),
+    blockNumber: distributionBlockNumber.toString(),
     amountDistributed: totalAmountDistributed.toString(),
     sharesDistributed: totalSharesDistributed.toString(),
     data: {
@@ -316,7 +295,34 @@ async function main() {
     },
   }
 
-  fse.outputJSONSync(`scripts/verify-distribution-output.json`, result, { spaces: 2 })
+  const distributionIPFSHash = await priorityPool.ipfsHash({ blockTag: distributionBlockNumber })
+
+  let res: any = await axios.request({
+    method: 'get',
+    baseURL: IPFS_GATEWAY_URL,
+    url: `/${base58.encode(Buffer.from('1220' + distributionIPFSHash.slice(2), 'hex'))}`,
+  })
+
+  let success = true
+  if (
+    res.data != JSON.stringify(result.data) ||
+    events[0].args[0] != result.data.merkleRoot ||
+    events[0].args[2].toString() != result.amountDistributed ||
+    events[0].args[3].toString() != result.sharesDistributed
+  ) {
+    console.log('Verification failed: distribution data does not match')
+    success = false
+  } else {
+    console.log('Verification succeeded: distribution data matches')
+  }
+
+  console.log('Results outputted to: verify-distribution-output.json\n')
+
+  fse.outputJSONSync(
+    `scripts/verify-distribution-output.json`,
+    { verificationSucceeded: success, ...result },
+    { spaces: 2 }
+  )
 }
 
 main()

@@ -71,9 +71,9 @@ export function getPrimaryDistributionAmounts(
 
     for (let i = 1; i < numAccounts; i++) {
       let qTokenBalance = qTokenBalances[i]
-      if (qTokenBalance == BigInt(0)) continue
-
       let reSDLBalance = reSDLBalances[i]
+      if (qTokenBalance == BigInt(0) || reSDLBalance == BigInt(0)) continue
+
       let toReceive: any = (toDistribute * reSDLBalance) / reSDLTotal
 
       if (amountsToReceive[i] + toReceive >= qTokenBalance) {
@@ -270,7 +270,7 @@ class MerkleTransport implements Transport<BaseEndpointTypes> {
         baseURL: settings.PINATA_GATEWAY_URL,
         url: `/ipfs/${base58.encode(Buffer.from('1220' + ipfsHash.slice(2), 'hex'))}`,
       })
-      const { data } = res.response
+      const data = JSON.parse(res.response.data)
       if (data.merkleRoot != merkleRoot) {
         return {
           statusCode: 500,
@@ -357,11 +357,15 @@ class MerkleTransport implements Transport<BaseEndpointTypes> {
 
     for (let i = 0; i < accounts.length; i++) {
       let account = accounts[i]
-      let amount = BigInt(newTreeData[account].amount)
       let queuedBalance = BigInt(accountData[2][i])
+
+      let amount = BigInt(newTreeData[account].amount)
       let oldAmount = BigInt(treeData[account]?.amount || 0)
 
-      if (amount > queuedBalance || amount < oldAmount) {
+      let sharesAmount = BigInt(newTreeData[account].sharesAmount)
+      let oldSharesAmount = BigInt(treeData[account]?.sharesAmount || 0)
+
+      if (amount > queuedBalance || amount < oldAmount || sharesAmount < oldSharesAmount) {
         return {
           statusCode: 500,
           errorMessage: 'Invalid merkle tree',

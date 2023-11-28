@@ -128,7 +128,7 @@ export function mockIpfsResponse(
   return nock('http://127.0.0.1:5000/pinata')
     .persist()
     .get(`/ipfs/${existingIpfsCID}`)
-    .reply(200, JSON.stringify(calculateIPFSData(existingTreeData)), [
+    .reply(200, JSON.stringify(JSON.stringify(calculateIPFSData(existingTreeData))), [
       'Access-Control-Allow-Headers',
       'X-Stream-Output, X-Chunked-Output, X-Content-Length',
       'Access-Control-Expose-Headers',
